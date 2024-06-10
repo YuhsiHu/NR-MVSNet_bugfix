@@ -51,15 +51,17 @@ class MVSNet(nn.Module):
             features.append(self.feature_net(img))
         
         outputs = {}
+        # for the first stage, depth is None
         depth, cur_depth, uncertainty_map, view_weights = None, None, None, None
+        
         for stage_idx in range(self.num_stages):
             proj_matrices_stage = proj_matrices["stage{}".format(stage_idx + 1)]
             stage_scale = self.stage_infos["stage{}".format(stage_idx + 1)]["scale"]
             features_stage = [feat["stage{}".format(stage_idx + 1)] for feat in features]
-
+            # current H W
             cur_width = img_width // int(stage_scale)
             cur_height = img_height // int(stage_scale)
-            
+            # for the first stage, depth is None
             if depth is not None:
                 cur_depth = depth.detach()
                 cur_depth = F.interpolate(
@@ -82,11 +84,13 @@ class MVSNet(nn.Module):
             else:
                 cur_depth = depth_values
 
+            # ratio=[2,1,1]?
             if stage_idx == 2:
                 next_depth_interval_pixel = self.depth_intervals_ratio[stage_idx] * depth_interval
             else:
                 next_depth_interval_pixel = self.depth_intervals_ratio[stage_idx + 1] * depth_interval
 
+            # stagenet
             output_stage = self.stage_nets[stage_idx](
                             depth = cur_depth,
                             features=features_stage,
@@ -98,7 +102,7 @@ class MVSNet(nn.Module):
                             view_weights=view_weights,
                             img_min_depth=img_min_depth, img_max_depth=img_max_depth
             )
-
+            # depth is last stage depth
             depth = output_stage["depths"][-1]
             view_weights = output_stage["view_weights"]
             uncertainty_map = output_stage["uncertainty_map"]
@@ -106,4 +110,3 @@ class MVSNet(nn.Module):
             outputs.update(output_stage)
         
         return outputs
-            

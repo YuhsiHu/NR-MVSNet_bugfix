@@ -23,8 +23,8 @@ parser.add_argument('--model', default='mvsnet', help='select model')
 parser.add_argument('--device', default='cuda', help='select model')
 
 parser.add_argument('--dataset', default='dtu_train', help='select dataset')
-parser.add_argument('--testpath',default='data/dtu_train/', help='test datapath')
-parser.add_argument('--trainpath',default='data/dtu_train/', help='train datapath')
+parser.add_argument('--testpath',default='/home/yuxihu/data/CasMVSNet/dtu_training/', help='test datapath')
+parser.add_argument('--trainpath',default='/home/yuxihu/data/CasMVSNet/dtu_training/', help='train datapath')
 
 parser.add_argument('--wd', type=float, default=0.0, help='weight decay')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')

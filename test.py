@@ -22,9 +22,8 @@ parser.add_argument('--mode', default='test', help='select mode')
 parser.add_argument('--model', default='mvsnet', help='select model')
 
 parser.add_argument('--dataset', default='dtu_test', help='select dataset')
-parser.add_argument('--testpath',default='data/dtu_test', help='testing data dir for some scenes')
-
-parser.add_argument('--loadckpt', default='checkpoints/DDRNet.ckpt', help='load a specific checkpoint')
+parser.add_argument('--testpath',default='/home/yuxihu/data/CasMVSNet/dtu_test', help='testing data dir for some scenes')
+parser.add_argument('--loadckpt', default='results/model_000015.ckpt', help='load a specific checkpoint')
 parser.add_argument('--outdir', default='results', help='output dir')
 
 parser.add_argument('--num_range_depths', type=str, default="48,24,8", help="number of range sample of depth")

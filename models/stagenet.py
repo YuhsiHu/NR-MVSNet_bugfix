@@ -35,66 +35,30 @@ class DepthSampleRange(nn.Module):
             min_depth: current min depth map [B, ndepth, H, W]
             max_depth: current max depth map [B, ndepth, H, W]
         """
-        # device = depth.device
-        # batch, height, width = shape
-        # if depth.dim() == 2:
-        #     cur_min_depth, cur_max_depth = depth[:, 0], depth[:, -1]
-        #     cur_min_depth = cur_min_depth.view(batch, 1, 1, 1).repeat(1, 1, height, width)
-        #     cur_max_depth = cur_max_depth.view(batch, 1, 1, 1).repeat(1, 1, height, width)
-        #     inverse_min_depth, inverse_max_depth = 1.0 / cur_min_depth, 1.0 / cur_max_depth
-            
-        #     depth_sample = torch.rand(size=(batch, self.num_samples, height, width),
-        #         device=device) + torch.arange(start=0, end=self.num_samples, step=1, device=device).view(
-        #         1, self.num_samples, 1, 1).float()
-        # else:
-        #     cur_min_depth = (depth - self.num_samples / 2 * uncertainty_map * depth_interval_pixel * 1.5)
-        #     cur_max_depth = (depth + self.num_samples / 2 * uncertainty_map * depth_interval_pixel * 1.5)
-
-        #     cur_min_depth = cur_min_depth.clamp(min=img_min_depth)
-        #     cur_max_depth = cur_max_depth.clamp(max=img_max_depth)
-        #     inverse_min_depth, inverse_max_depth = 1.0 / cur_min_depth, 1.0 / cur_max_depth
-
-        #     depth_sample = torch.arange(start=0, end=self.num_samples, 
-        #         step=1, device=device).view(1, self.num_samples, 1, 1).float()
-            
-        # depth_sample = inverse_max_depth + depth_sample / self.num_samples * (inverse_min_depth - inverse_max_depth)
-        # depth_sample = 1.0 / depth_sample
-
-        # return depth_sample, cur_min_depth, cur_max_depth
-
         device = depth.device
         batch, height, width = shape
         if depth.dim() == 2:
+            # if (B,n),  extract min and max depth
             cur_min_depth, cur_max_depth = depth[:, 0], depth[:, -1]
+            # make size==image 
             cur_min_depth = cur_min_depth.view(batch, 1, 1, 1).repeat(1, 1, height, width)
             cur_max_depth = cur_max_depth.view(batch, 1, 1, 1).repeat(1, 1, height, width)
-            
+            # compute the inverse of depth range, to randomize it
             new_interval = (cur_max_depth - cur_min_depth) / (num_samples - 1)
+            # generate random depth sample
             depth_sample = cur_min_depth + torch.arange(
                     0, num_samples, device=device, requires_grad=False).float().view(1, -1, 1, 1) * new_interval
         else:
+            # if (B,1,H,W)
             if uncertainty_map is None: 
                 uncertainty_map, constant  = 1.0, 1.0
             else:
                 constant = 1.5
+            # update
             new_interval = uncertainty_map * depth_interval_pixel * constant
             cur_min_depth = torch.clamp_min(depth - num_samples / 2 * depth_interval_pixel, 1e-7)
             depth_sample = cur_min_depth + torch.arange(
                     0, num_samples, device=device, requires_grad=False).float().view(1, -1, 1, 1) * new_interval
-
-            # cur_min_depth = (depth - num_samples / 2 * uncertainty_map * depth_interval_pixel * constant)
-            # cur_max_depth = (depth + num_samples / 2 * uncertainty_map * depth_interval_pixel * constant)
-
-            # cur_min_depth = cur_min_depth.clamp(min=img_min_depth)
-            # cur_max_depth = cur_max_depth.clamp(max=img_max_depth)
-
-            # if (cur_min_depth >= cur_max_depth).any():
-            #     print("min_depth > max_depth")
-
-            # new_interval = (cur_max_depth - cur_min_depth) / (num_samples - 1)
-
-            # depth_sample = cur_min_depth + torch.arange(
-            #         0, num_samples, device=device, requires_grad=False).float().view(1, -1, 1, 1) * new_interval
             
         return depth_sample
 
@@ -209,14 +173,16 @@ class DepthSampleNormal(nn.Module):
         # compute normals
         gradients = spatial_gradient(xyz)
         a, b = gradients[:, :, 0], gradients[:, :, 1]
+        # cross multiply
         normals = torch.cross(a, b, dim=1)
+        # normalize
         normals = F.normalize(normals, dim=1, p=2)
 
-        # extract points patch
+        # extract points patch, includes 3D coordinate for every point
         points_patch = F.grid_sample(xyz, grid, mode="bilinear", padding_mode="border")
         points_patch = points_patch.view(batch, 3, num_neigs, height, width)
 
-        # extract normals patch
+        # extract normals patch, includes normal info for every point
         normals_patch = F.grid_sample(normals, grid, mode="bilinear", padding_mode="border")
         normals_patch = normals_patch.view(batch, 3, num_neigs, height, width)
 
@@ -267,13 +233,12 @@ class PixelwiseNet(nn.Module):
         """
         # [B, Ndepth, H, W]
         x1 = self.conv2(self.conv1(self.conv0(x1))).squeeze(1)
-
+        # make it between 0 to 1
         output = self.output(x1)
         del x1
-        # [B,H,W]
-        output = torch.max(output, dim=1)[0]
+        output = torch.max(output, dim=1)[0] # [B,H,W]
 
-        return output.unsqueeze(1)
+        return output.unsqueeze(1) # (B,1,H,W)
 
 
 class DepthPredNet(nn.Module):
@@ -297,9 +262,10 @@ class DepthPredNet(nn.Module):
         volume_sum = torch.zeros((batch, feat_channel, num_samples, height, width), dtype=dtype, device=device)
 
         if view_weights is None:
+            # need to use pixelwise_net
             view_weights_list = []
             for src_fea, src_proj in zip(src_features, src_projs):
-                #warpped features
+                # warpped features
                 src_proj_new = src_proj[:, 0].clone()
                 src_proj_new[:, :3, :4] = torch.matmul(src_proj[:, 1, :3, :3], src_proj[:, 0, :3, :4])
                 ref_proj_new = ref_proj[:, 0].clone()
@@ -307,7 +273,7 @@ class DepthPredNet(nn.Module):
                 warped_volume = homo_warping(src_fea, src_proj_new, ref_proj_new, depth_samples)
                 warped_volume = warped_volume * ref_features.unsqueeze(2)
 
-                # calc pixel-wise view weight
+                # calculate pixel-wise view weight
                 view_weight = pixelwise_net(warped_volume)
                 view_weights_list.append(view_weight)
 
@@ -323,6 +289,7 @@ class DepthPredNet(nn.Module):
             # aggregated matching cost across all the source views
             volume_aggregated = volume_sum.div_(pixelwise_weight_sum)
         else:
+            # view_weight is not None
             idx = 0
             for src_fea, src_proj in zip(src_features, src_projs):
                 #warpped features
@@ -373,11 +340,6 @@ class StageNet(nn.Module):
 
         # depth range sample
         self.depth_sample_range_net = DepthSampleRange()
-
-        # depth normal sample
-        # if num_normal_samples > 0:            
-        #     self.dilation = 2
-        #     self.depth_smaple_normal_net = DepthSampleNormal()
 
         # depth normal sample
         if num_normal_samples > 0:            
@@ -472,7 +434,7 @@ class StageNet(nn.Module):
 
             cur_depth = depths[-1].detach().unsqueeze(1)
         
-        # calc the normal sample grid, each iteration the grid is same
+        # other stages, calc the normal sample grid, each iteration the grid is same
         if self.num_normal_samples > 0:
             normal_sample_grid_offset = self.adaptive_grid_offset_net(ref_feat.detach())
             normal_sample_grid_offset = normal_sample_grid_offset.view(batch, 2 * self.num_normal_samples, height * width)
@@ -524,22 +486,6 @@ class StageNet(nn.Module):
             depths.append(depth)
             cur_depth = depth.detach().unsqueeze(1)
             cur_uncertainty_map = uncertainty_map.unsqueeze(1) if uncertainty_map is not None else None
-
-        # In first stage, depth refine 
-        # if self.stage == 0:
-        #     update_depth = self.depth_update_net(
-        #         ref_feat.detach(),
-        #         cost_volume.detach(),
-        #         prob_volume.detach(),
-        #         depth.detach().unsqueeze(1),
-        #         next_depth_interval_pixel,
-        #         self.num_samples
-        #     )
-        #     min_depth = img_min_depth.squeeze(1)
-        #     max_depth = img_max_depth.squeeze(1)
-        #     update_depth = torch.where(update_depth < min_depth, min_depth, update_depth)
-        #     update_depth = torch.where(update_depth > max_depth, max_depth, update_depth)
-        #     depths.append(update_depth)
 
         # confidence
         with torch.no_grad():

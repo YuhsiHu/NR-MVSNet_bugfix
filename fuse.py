@@ -13,7 +13,7 @@ import signal
 
 
 parser = argparse.ArgumentParser(description='filter and fuse')
-parser.add_argument('--testpath',default='data/tanks_test', help='testing data dir for some scenes')
+parser.add_argument('--testpath',default='/home/yuxihu/data/CasMVSNet/dtu_test', help='testing data dir for some scenes')
 
 parser.add_argument('--dataset', default='dtu', help='dataset')
 parser.add_argument('--depth_dir', default='results', help='depth output dir')
@@ -26,7 +26,7 @@ parser.add_argument('--disp_threshold', type=float, default='0.25')
 
 parser.add_argument('--fusibile_exe_path', type=str, default='./fusibile')
 parser.add_argument('--num_worker', type=int, default=4, help='depth_filer worker')
-parser.add_argument('--method', type=str, default='normal', choices=["gipuma", "normal"], help="filter method")
+parser.add_argument('--method', type=str, default='gipuma', choices=["gipuma", "normal"], help="filter method")
 
 # parse arguments and check
 args = parser.parse_args()

@@ -124,39 +124,3 @@ class DepthUpdate(nn.Module):
         new_depth = (depth + depth_res) * (depth_max - depth_min) + depth_min
 
         return new_depth.squeeze(1)
-
-
-# class DepthUpdate(nn.Module):
-#     def __init__(self, in_channels_x1, in_channels_x2):
-#         super(DepthUpdate, self).__init__()
-
-#         self.conv1x1 = ConvBnReLU(in_channels_x2, out_channels=in_channels_x1, kernel_size=1, stride=1, pad=0)
-
-#         in_channels = in_channels_x1 * 2
-#         self.conv0 = ConvBnReLU(in_channels, out_channels=16, kernel_size=3, stride=1, pad=1)
-#         self.conv1 = ConvBnReLU(in_channels=16, out_channels=8, kernel_size=3, stride=1, pad=1)
-
-#         self.conv2 = ConvBnReLU(in_channels=1, out_channels=8, kernel_size=3, stride=1, pad=1)
-
-#         self.conv3 = ConvBnReLU(in_channels=16, out_channels=8, kernel_size=3, stride=1, pad=1)
-#         self.conv4 = nn.Conv2d(in_channels=8, out_channels=1, kernel_size=3, stride=1, padding=1, bias=False)
-
-#     def forward(self, x1, x2, depth, depth_interval_pixel, ndepth):
-
-#         depth_min = (depth - ndepth / 2 * depth_interval_pixel)  # (B, H, W)
-#         depth_max = (depth + ndepth / 2 * depth_interval_pixel)
-#         feat1 = self.conv1x1(x2)
-#         feat1 = torch.cat((feat1, x1), dim=1)
-#         feat1 = self.conv1(self.conv0(feat1))
-#         # print(depth_min.shape, depth_min.dim)
-#         if depth_min.dim() == 2:
-#             depth_min = depth_min.unsqueeze(2).unsqueeze(3)
-#             depth_max = depth_max.unsqueeze(2).unsqueeze(3)
-#         depth = (depth - depth_min) / (depth_max - depth_min + eps)
-#         feat2 = self.conv2(depth)
-
-#         depth_res = self.conv4(self.conv3(torch.cat((feat1, feat2), dim=1)))
-#         new_depth = depth + depth_res
-#         new_depth = new_depth * (depth_max - depth_min) + depth_min
-        
-#         return new_depth.squeeze(1)

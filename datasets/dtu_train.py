@@ -108,13 +108,13 @@ class MVSDataset(Dataset):
         proj_mats = [] # record proj mats between views
         for i, vid in enumerate(view_ids):
             img_filename = os.path.join(
-                self.root_dir, f'Rectified/{scan}/rect_{vid+1:03d}_{light_idx}_r5000.png'
+                self.root_dir, f'Rectified/{scan}_train/rect_{vid+1:03d}_{light_idx}_r5000.png'
             )
             mask_filename = os.path.join(
-                self.root_dir, f'Depths/{scan}/depth_visual_{vid:04d}.png'
+                self.root_dir, f'Depths_raw/{scan}/depth_visual_{vid:04d}.png'
             )
             depth_filename = os.path.join(
-                self.root_dir, f'Depths/{scan}/depth_map_{vid:04d}.pfm'
+                self.root_dir, f'Depths_raw/{scan}/depth_map_{vid:04d}.pfm'
             )
             proj_mat_filename = os.path.join(
                 self.root_dir, f'Cameras/train/{vid:08d}_cam.txt'
